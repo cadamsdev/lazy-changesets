@@ -65,13 +65,13 @@ async function main() {
     const msgType = await select({
       message: `Select the type of changeset for ${packageName}:`,
       options: [
-        { value: 'chore', label: '🏠 Chore' },
-        { value: 'fix', label: '🛠️ Fix' },
-        { value: 'feat', label: '🚀 Feature' },
-        { value: 'doc', label: '📚 Documentation' },
-        { value: 'styl', label: '🎨 Styles' },
-        { value: 'ref', label: '♻️ Refactor' },
-        { value: 'test', label: '✅ Tests' },
+        { value: 'chore', label: 'Chore 🏠' },
+        { value: 'fix', label: 'Fix 🛠️' },
+        { value: 'feat', label: 'Feature 🚀' },
+        { value: 'doc', label: 'Documentation 📚' },
+        { value: 'styl', label: 'Styles 🎨' },
+        { value: 'ref', label: 'Refactor ♻️' },
+        { value: 'test', label: 'Tests ✅' },
       ],
     });
 
