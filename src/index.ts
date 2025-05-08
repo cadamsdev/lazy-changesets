@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 
-import { multiselect, select, text, confirm } from '@clack/prompts';
+import {
+  multiselect,
+  select,
+  text,
+  confirm,
+  isCancel,
+  cancel,
+} from '@clack/prompts';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { globSync } from 'tinyglobby';
 import { defineCommand, runMain } from 'citty';
@@ -40,6 +47,11 @@ async function getSelectedPackages(
           label: pkg,
         })),
     });
+
+    if (isCancel(selected)) {
+      cancel('Operation cancelled.');
+      process.exit(0);
+    }
 
     selectedPackages.push(...(selected as string[]));
   } else if (packages.size === 1) {
@@ -99,6 +111,11 @@ async function main() {
         ],
       });
 
+      if (isCancel(msgType)) {
+        cancel('Operation cancelled.');
+        process.exit(0);
+      }
+
       let isBreakingChange = false;
 
       if (
@@ -109,10 +126,17 @@ async function main() {
         msgType === 'build' ||
         msgType === 'revert'
       ) {
-        isBreakingChange = !!(await confirm({
+        const tempIsBreakingChange = await confirm({
           message: 'Is this a breaking change?',
           initialValue: false,
-        }));
+        });
+
+        if (isCancel(tempIsBreakingChange)) {
+          cancel('Operation cancelled.');
+          process.exit(0);
+        }
+
+        isBreakingChange = tempIsBreakingChange;
       }
 
       const msg = await text({
@@ -122,6 +146,11 @@ async function main() {
           if (value.length === 0) return 'Message cannot be empty.';
         },
       });
+
+      if (isCancel(msg)) {
+        cancel('Operation cancelled.');
+        process.exit(0);
+      }
 
       const changesetDir = path.join(process.cwd(), '.changeset');
 
