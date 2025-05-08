@@ -32,22 +32,30 @@ async function main() {
     return;
   }
 
-  // Prompt the user to select packages
-  const { selectedPackages } = await inquirer.prompt([
-    {
-      type: 'checkbox',
-      name: 'selectedPackages',
-      message: 'Select the packages you want to add a changeset for:',
-      choices: Array.from(packages.keys()).sort((a, b) => a.localeCompare(b)),
-    },
-  ]);
+  const selectedPackages: string[] = [];
 
-  if (selectedPackages.length === 0) {
-    console.log('No packages selected.');
-    return;
+  if (packages.size > 1) {
+    // Prompt the user to select packages
+    const { selectedPackages: selected } = await inquirer.prompt([
+      {
+        type: 'checkbox',
+        name: 'selectedPackages',
+        message: 'Select the packages you want to add a changeset for:',
+        choices: Array.from(packages.keys()).sort((a, b) => a.localeCompare(b)),
+      },
+    ]);
+
+    if (selected.length === 0) {
+      console.log('No packages selected.');
+      return;
+    }
+
+    console.log(`You selected: ${selected.join(', ')}`);
+    selectedPackages.push(...selected);
+  } else if (packages.size === 1) {
+    const selectedPackage = Array.from(packages.keys())[0];
+    selectedPackages.push(selectedPackage);
   }
-
-  console.log(`You selected: ${selectedPackages.join(', ')}`);
 
   const changelog: string[] = [];
 
