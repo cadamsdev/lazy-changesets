@@ -49,6 +49,8 @@ async function main() {
 
   console.log(`You selected: ${selectedPackages.join(', ')}`);
 
+  const changelog: string[] = [];
+
   for (const packageName of selectedPackages) {
     // Prompt the user for the conventional commit type
     const { commitType } = await inquirer.prompt([
@@ -77,8 +79,11 @@ async function main() {
       },
     ]);
 
-    console.log(`Changeset for ${packageName}: ${commitType} - ${changesetMessage}`);
+    changelog.push(`- ${packageName}: ${commitType} - ${changesetMessage}`);
   }
+
+  console.log('\nGenerated Changelog:');
+  console.log(changelog.join('\n'));
 }
 
 main().catch((err) => {
