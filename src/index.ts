@@ -1,33 +1,84 @@
 #!/usr/bin/env node
 
 import inquirer from 'inquirer';
+import { readFileSync } from 'fs';
+import { globSync } from 'tinyglobby';
+
+async function findPackages(): Promise<Map<string, string>> {
+  const packageJsonPaths = globSync({
+    patterns: ['**/package.json', '!**/node_modules/**', '!**/dist/**'],
+  });
+
+  const packageMap: Map<string, string> = new Map();
+
+  for (const packageJsonPath of packageJsonPaths) {
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+    if (packageJson.name) {
+      const dirPath = './' + packageJsonPath.replace(/\/?package\.json$/, '');
+      packageMap.set(packageJson.name, dirPath);
+    }
+  }
+
+  return packageMap;
+}
 
 async function main() {
   console.log('Welcome to the Conventional Changesets CLI!');
 
-  // Prompt the user for the conventional commit type
-  const { commitType } = await inquirer.prompt([
+  const packages = await findPackages();
+
+  if (packages.size === 0) {
+    console.log('No packages found.');
+    return;
+  }
+
+  // Prompt the user to select packages
+  const { selectedPackages } = await inquirer.prompt([
     {
-      type: 'list',
-      name: 'commitType',
-      message: 'What type of change are you making?',
-      choices: [
-        '🏠 Chore',
-        '🛠️ Fix',
-        '🚀 Feature',
-        '📚 Documentation',
-        '🎨 Styles',
-        '♻️ Refactor',
-        '✅ Tests',
-        '⚡ Performance Improvements',
-      ],
+      type: 'checkbox',
+      name: 'selectedPackages',
+      message: 'Select the packages you want to add a changeset for:',
+      choices: Array.from(packages.keys()).sort((a, b) => a.localeCompare(b)),
     },
   ]);
 
-  console.log(`You selected: ${commitType}`);
+  if (selectedPackages.length === 0) {
+    console.log('No packages selected.');
+    return;
+  }
 
-  // Here you can add logic to handle the selected commit type
-  // For example, generating a changeset file or performing other actions
+  console.log(`You selected: ${selectedPackages.join(', ')}`);
+
+  for (const packageName of selectedPackages) {
+    // Prompt the user for the conventional commit type
+    const { commitType } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'commitType',
+        message: `Select the type of changeset for ${packageName}:`,
+        choices: [
+          '🏠 Chore',
+          '🛠️ Fix',
+          '🚀 Feature',
+          '📚 Documentation',
+          '🎨 Styles',
+          '♻️ Refactor',
+          '✅ Tests',
+        ],
+      },
+    ]);
+
+    const { changesetMessage } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'changesetMessage',
+        message: `Enter a message for the changeset for ${packageName}:`,
+        validate: (input) => input.length > 0 || 'Message cannot be empty.',
+      },
+    ]);
+
+    console.log(`Changeset for ${packageName}: ${commitType} - ${changesetMessage}`);
+  }
 }
 
 main().catch((err) => {
