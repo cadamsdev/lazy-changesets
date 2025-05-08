@@ -31,11 +31,13 @@ async function getSelectedPackages(
 
   if (packages.size > 1) {
     const selected = await multiselect({
-      message: 'Select the packages you want to add a changeset for:',
-      options: Array.from(packages.keys()).sort((a,b) => a.localeCompare(b)).map((pkg) => ({
-        value: pkg,
-        label: pkg,
-      })),
+      message: 'Which packages would you like to include?',
+      options: Array.from(packages.keys())
+        .sort((a, b) => a.localeCompare(b))
+        .map((pkg) => ({
+          value: pkg,
+          label: pkg,
+        })),
     });
 
     selectedPackages.push(...(selected as string[]));
@@ -48,8 +50,6 @@ async function getSelectedPackages(
 }
 
 async function main() {
-  console.log('Welcome to the Conventional Changesets CLI!');
-
   const main = defineCommand({
     meta: {
       name: 'conventional-changesets',
