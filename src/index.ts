@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import inquirer from 'inquirer';
+import { multiselect, select, text } from '@clack/prompts';
 import { readFileSync } from 'fs';
 import { globSync } from 'tinyglobby';
 
@@ -26,16 +26,15 @@ async function getSelectedPackages(packages: Map<string, string>): Promise<strin
   const selectedPackages: string[] = [];
 
   if (packages.size > 1) {
-    const { selectedPackages: selected } = await inquirer.prompt([
-      {
-        type: 'checkbox',
-        name: 'selectedPackages',
-        message: 'Select the packages you want to add a changeset for:',
-        choices: Array.from(packages.keys()).sort((a, b) => a.localeCompare(b)),
-      },
-    ]);
+    const selected = await multiselect({
+      message: 'Select the packages you want to add a changeset for:',
+      options: Array.from(packages.keys()).map((pkg) => ({
+        value: pkg,
+        label: pkg,
+      })),
+    });
 
-    selectedPackages.push(...selected);
+    selectedPackages.push(...selected as string[]);
   } else if (packages.size === 1) {
     const selectedPackage = Array.from(packages.keys())[0];
     selectedPackages.push(selectedPackage);
@@ -63,33 +62,28 @@ async function main() {
   const changelog: string[] = [];
 
   for (const packageName of selectedPackages) {
-    const { commitType } = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'commitType',
-        message: `Select the type of changeset for ${packageName}:`,
-        choices: [
-          '🏠 Chore',
-          '🛠️ Fix',
-          '🚀 Feature',
-          '📚 Documentation',
-          '🎨 Styles',
-          '♻️ Refactor',
-          '✅ Tests',
-        ],
-      },
-    ]);
+    const msgType = await select({
+      message: `Select the type of changeset for ${packageName}:`,
+      options: [
+        { value: 'chore', label: '🏠 Chore' },
+        { value: 'fix', label: '🛠️ Fix' },
+        { value: 'feat', label: '🚀 Feature' },
+        { value: 'doc', label: '📚 Documentation' },
+        { value: 'styl', label: '🎨 Styles' },
+        { value: 'ref', label: '♻️ Refactor' },
+        { value: 'test', label: '✅ Tests' },
+      ],
+    });
 
-    const { changesetMessage } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'changesetMessage',
-        message: `Enter a message for the changeset for ${packageName}:`,
-        validate: (input) => input.length > 0 || 'Message cannot be empty.',
+    const msg = await text({
+      message: `Enter a message for the changeset for ${packageName}:`,
+      placeholder: 'e.g Added x feature',
+      validate(value) {
+        if (value.length === 0) return 'Message cannot be empty.';
       },
-    ]);
+    });
 
-    changelog.push(`- ${packageName}: ${commitType} - ${changesetMessage}`);
+    changelog.push(`- ${packageName}: ${msgType.toString()}: ${msg.toString()}`);
   }
 
   console.log('\nGenerated Changelog:');
