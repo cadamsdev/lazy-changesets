@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { multiselect, select, text } from '@clack/prompts';
+import { multiselect, select, text, confirm } from '@clack/prompts';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { globSync } from 'tinyglobby';
 import { defineCommand, runMain } from 'citty';
@@ -95,8 +95,25 @@ async function main() {
           { value: 'perf', label: 'Performance ⚡️' },
           { value: 'build', label: 'Build 📦' },
           { value: 'ci', label: 'CI 🤖' },
+          { value: 'revert', label: 'Revert ⏪' },
         ],
       });
+
+      let isBreakingChange = false;
+
+      if (
+        msgType === 'feat' ||
+        msgType === 'fix' ||
+        msgType === 'refactor' ||
+        msgType === 'perf' ||
+        msgType === 'build' ||
+        msgType === 'revert'
+      ) {
+        isBreakingChange = !!(await confirm({
+          message: 'Is this a breaking change?',
+          initialValue: false,
+        }));
+      }
 
       const msg = await text({
         message: 'Enter a message for the changeset',
@@ -108,6 +125,11 @@ async function main() {
 
       const changesetDir = path.join(process.cwd(), '.changeset');
 
+      // create the changeset directory if it doesn't exist
+      if (!existsSync(changesetDir)) {
+        mkdirSync(changesetDir);
+      }
+
       const changesetID = humanId({
         separator: '-',
         capitalize: false,
@@ -117,7 +139,9 @@ async function main() {
       const changesetFilePath = path.join(changesetDir, changesetFileName);
       let changesetContent = '---\n';
       selectedPackages.forEach((pkg) => {
-        changesetContent += `"${pkg}": ${msgType.toString()}\n`;
+        changesetContent += `"${pkg}": ${msgType.toString()}${
+          isBreakingChange ? '!' : ''
+        }\n`;
       });
 
       changesetContent += '---\n\n';
