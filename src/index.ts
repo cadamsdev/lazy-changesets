@@ -5,6 +5,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { globSync } from 'tinyglobby';
 import { defineCommand, runMain } from 'citty';
 import path from 'path';
+import { humanId } from 'human-id';
 
 async function findPackages(): Promise<Map<string, string>> {
   const packageJsonPaths = globSync({
@@ -81,37 +82,51 @@ async function main() {
         return;
       }
 
-      const changelog: string[] = [];
+      const msgType = await select({
+        message: 'Select message type',
+        options: [
+          { value: 'chore', label: 'Chore 🏠' },
+          { value: 'fix', label: 'Fix 🛠️' },
+          { value: 'feat', label: 'Feature 🚀' },
+          { value: 'docs', label: 'Documentation 📚' },
+          { value: 'style', label: 'Styles 🎨' },
+          { value: 'refactor', label: 'Refactor ♻️' },
+          { value: 'test', label: 'Tests ✅' },
+          { value: 'perf', label: 'Performance ⚡️' },
+          { value: 'build', label: 'Build 📦' },
+          { value: 'ci', label: 'CI 🤖' },
+        ],
+      });
 
-      for (const packageName of selectedPackages) {
-        const msgType = await select({
-          message: `Select the type of changeset for ${packageName}:`,
-          options: [
-            { value: 'chore', label: 'Chore 🏠' },
-            { value: 'fix', label: 'Fix 🛠️' },
-            { value: 'feat', label: 'Feature 🚀' },
-            { value: 'doc', label: 'Documentation 📚' },
-            { value: 'styl', label: 'Styles 🎨' },
-            { value: 'ref', label: 'Refactor ♻️' },
-            { value: 'test', label: 'Tests ✅' },
-          ],
-        });
+      const msg = await text({
+        message: 'Enter a message for the changeset',
+        placeholder: 'e.g Added x feature',
+        validate(value) {
+          if (value.length === 0) return 'Message cannot be empty.';
+        },
+      });
 
-        const msg = await text({
-          message: `Enter a message for the changeset for ${packageName}:`,
-          placeholder: 'e.g Added x feature',
-          validate(value) {
-            if (value.length === 0) return 'Message cannot be empty.';
-          },
-        });
+      const changesetDir = path.join(process.cwd(), '.changeset');
 
-        changelog.push(
-          `- ${packageName}: ${msgType.toString()}: ${msg.toString()}`
-        );
-      }
+      const changesetID = humanId({
+        separator: '-',
+        capitalize: false,
+      });
 
-      console.log('\nGenerated Changelog:');
-      console.log(changelog.join('\n'));
+      const changesetFileName = `${changesetID}.md`;
+      const changesetFilePath = path.join(changesetDir, changesetFileName);
+      let changesetContent = '---\n';
+      selectedPackages.forEach((pkg) => {
+        changesetContent += `"${pkg}": ${msgType.toString()}\n`;
+      });
+
+      changesetContent += '---\n\n';
+      changesetContent += `${msg.toString()}\n`;
+
+      // write the changelog to the changeset file
+      writeFileSync(changesetFilePath, changesetContent, {
+        encoding: 'utf-8',
+      });
     },
   });
 
