@@ -32,7 +32,7 @@ async function getSelectedPackages(
   if (packages.size > 1) {
     const selected = await multiselect({
       message: 'Select the packages you want to add a changeset for:',
-      options: Array.from(packages.keys()).map((pkg) => ({
+      options: Array.from(packages.keys()).sort((a,b) => a.localeCompare(b)).map((pkg) => ({
         value: pkg,
         label: pkg,
       })),
