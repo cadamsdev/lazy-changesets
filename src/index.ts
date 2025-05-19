@@ -14,7 +14,19 @@ import { defineCommand, runMain } from 'citty';
 import path from 'path';
 import { humanId } from 'human-id';
 
-async function findPackages(): Promise<Map<string, string>> {
+interface ChangesetConfig {
+  baseBranch: string;
+  updateInternalDependencies: string;
+  ignore: string[];
+}
+
+const DEFAULT_CONFIG: ChangesetConfig = {
+  baseBranch: 'main',
+  updateInternalDependencies: 'patch',
+  ignore: [],
+}
+
+async function findPackages(config: ChangesetConfig): Promise<Map<string, string>> {
   const packageJsonPaths = globSync({
     patterns: ['**/package.json', '!**/node_modules/**', '!**/dist/**'],
   });
@@ -23,10 +35,19 @@ async function findPackages(): Promise<Map<string, string>> {
 
   for (const packageJsonPath of packageJsonPaths) {
     const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-    if (packageJson.name) {
-      const dirPath = './' + packageJsonPath.replace(/\/?package\.json$/, '');
-      packageMap.set(packageJson.name, dirPath);
+    const packageName = packageJson.name;
+    if (!packageName) {
+      console.warn(`No name found in ${packageJsonPath}`);
+      continue;
     }
+
+    if (config.ignore.includes(packageName)) {
+      console.warn(`Ignoring package ${packageName}`);
+      continue;
+    }
+
+    const dirPath = './' + packageJsonPath.replace(/\/?package\.json$/, '');
+    packageMap.set(packageJson.name, dirPath);
   }
 
   return packageMap;
@@ -81,7 +102,8 @@ async function main() {
         return;
       }
 
-      const packages = await findPackages();
+      const config = readConfigFile();
+      const packages = await findPackages(config);
 
       if (packages.size === 0) {
         console.log('No packages found.');
@@ -186,6 +208,18 @@ async function main() {
   runMain(main);
 }
 
+function readConfigFile(): ChangesetConfig {
+  let config: ChangesetConfig = {...DEFAULT_CONFIG };
+
+  const configFilePath = path.join(process.cwd(), '.changeset', 'config.json');
+  if (existsSync(configFilePath)) {
+    const configFile = readFileSync(configFilePath, 'utf-8');
+    config = JSON.parse(configFile);
+  }
+
+  return config;
+}
+
 async function init() {
   console.log('Initializing changesets...');
   const changesetDir = path.join(process.cwd(), '.changeset');
@@ -197,12 +231,7 @@ async function init() {
   // create config file
   const configFilePath = path.join(changesetDir, 'config.json');
   if (!existsSync(configFilePath)) {
-    const config = {
-      baseBranch: 'main',
-      updateInternalDependencies: 'patch',
-      ignore: [],
-    };
-    writeFileSync(configFilePath, JSON.stringify(config, null, 2));
+    writeFileSync(configFilePath, JSON.stringify(DEFAULT_CONFIG, null, 2));
     console.log('Created config.json file');
   }
 
