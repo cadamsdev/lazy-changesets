@@ -13,6 +13,7 @@ import { globSync } from 'tinyglobby';
 import { defineCommand, runMain } from 'citty';
 import path from 'path';
 import { humanId } from 'human-id';
+import pc from 'picocolors';
 
 interface ChangesetConfig {
   baseBranch: string;
@@ -95,6 +96,12 @@ async function main() {
         description: 'Initialize changesets',
         required: false,
       },
+      empty: {
+        type: 'boolean',
+        description: 'Create an empty changeset',
+        required: false,
+        default: false,
+      },
     },
     run: async ({ args }) => {
       if (args.init) {
@@ -103,6 +110,38 @@ async function main() {
       }
 
       const config = readConfigFile();
+
+      if (args.empty) {
+        const changesetDir = path.join(process.cwd(), '.changeset');
+
+        if (!existsSync(changesetDir)) {
+          mkdirSync(changesetDir);
+        }
+
+        const changesetID = humanId({
+          separator: '-',
+          capitalize: false,
+        });
+
+        const changesetFileName = `${changesetID}.md`;
+        const changesetFilePath = path.join(changesetDir, changesetFileName);
+        const markdownContent = '---\n---\n\n';
+        writeFileSync(changesetFilePath, markdownContent, {
+          encoding: 'utf-8',
+        });
+
+        console.log(
+          pc.green('Empty Changeset added! - you can now commit it\n')
+        );
+        console.log(
+          pc.green(
+            'If you want to modify or expand on the changeset summary, you can find it here'
+          )
+        );
+        console.log(pc.cyan('info'), pc.blue(changesetFilePath));
+        return;
+      }
+
       const packages = await findPackages(config);
 
       if (packages.size === 0) {
