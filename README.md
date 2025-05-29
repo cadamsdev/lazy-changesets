@@ -15,18 +15,18 @@ npm install -g @cadamsdev/lazy-changesets
 
 1. Initialize the tool in your project directory.
 
-> [!NOTE]
-> This will create a `.changesets` directory with the necessary configuration files
-
 ```bash
 lazy-changesets init
 ```
 
-2. After initializing, you can start creating changesets. In your pull request, run the following command to create a changeset:
-
 > [!NOTE]
-> This will prompt you to enter the details of the changeset, such as the type of change, a summary, and any affected packages.
+> This will create a `.changesets` directory with the necessary configuration files
+
+2. After initializing, you can start creating changesets. In your pull request, run the following command to create a changeset:
 
 ```bash
 lazy-changesets
 ```
+
+> [!NOTE]
+> This will prompt you to enter the details of the changeset, such as the type of change, a summary, and any affected packages.
