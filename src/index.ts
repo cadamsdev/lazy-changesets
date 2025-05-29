@@ -87,8 +87,8 @@ async function getSelectedPackages(
 async function main() {
   const main = defineCommand({
     meta: {
-      name: 'conventional-changesets',
-      description: 'A CLI tool for generating conventional changesets',
+      name: 'lazy-changesets',
+      description: 'A CLI tool for generating changesets.',
     },
     args: {
       init: {
@@ -287,7 +287,7 @@ async function init() {
 
 function getReadmeContent() {
   return `
-  # Conventional Changesets
+  # Lazy Changesets
   - TODO
   `;
 }

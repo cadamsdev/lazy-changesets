@@ -1,5 +1,5 @@
 ---
-"@cadamsdev/conventional-changesets": feat
+"@cadamsdev/lazy-changesets": feat
 ---
 
 Added `--empty` flag to allow creating empty changesets.

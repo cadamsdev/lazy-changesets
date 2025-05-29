@@ -28,7 +28,7 @@ jobs:
 
       - name: Create Release PR or Publish Release
         id: release
-        uses: cadamsdev/conventional-changesets-action-test@main
+        uses: cadamsdev/lazy-changesets-action-test@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

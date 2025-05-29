@@ -1,10 +1,10 @@
 {
-  "name": "@cadamsdev/conventional-changesets",
+  "name": "@cadamsdev/lazy-changesets",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "conventional-changesets": "./dist/index.js"
+    "lazy-changesets": "./dist/index.js"
   },
   "scripts": {
     "start": "npx tsx src/index.ts",
