@@ -14,18 +14,7 @@ import { defineCommand, runMain } from 'citty';
 import path from 'path';
 import { humanId } from 'human-id';
 import pc from 'picocolors';
-
-interface ChangesetConfig {
-  baseBranch: string;
-  updateInternalDependencies: string;
-  ignore: string[];
-}
-
-const DEFAULT_CONFIG: ChangesetConfig = {
-  baseBranch: 'main',
-  updateInternalDependencies: 'patch',
-  ignore: [],
-}
+import { ChangesetConfig, readConfig } from './config.js';
 
 async function findPackages(config: ChangesetConfig): Promise<Map<string, string>> {
   const packageJsonPaths = globSync({
@@ -84,36 +73,132 @@ async function getSelectedPackages(
   return selectedPackages;
 }
 
-async function main() {
-  const main = defineCommand({
-    meta: {
-      name: 'lazy-changesets',
-      description: 'A CLI tool for generating changesets.',
-    },
-    args: {
-      init: {
-        type: 'positional',
-        description: 'Initialize changesets',
-        required: false,
+(async () => {
+  try {
+    const main = defineCommand({
+      meta: {
+        name: 'lazy-changesets',
+        description: 'A CLI tool for generating changesets.',
       },
-      empty: {
-        type: 'boolean',
-        description: 'Create an empty changeset',
-        required: false,
-        default: false,
+      args: {
+        init: {
+          type: 'positional',
+          description: 'Initialize changesets',
+          required: false,
+        },
+        empty: {
+          type: 'boolean',
+          description: 'Create an empty changeset',
+          required: false,
+          default: false,
+        },
       },
-    },
-    run: async ({ args }) => {
-      if (args.init) {
-        await init();
-        return;
-      }
+      run: async ({ args }) => {
+        if (args.init) {
+          await init();
+          return;
+        }
 
-      const config = readConfigFile();
+        const config = readConfig();
 
-      if (args.empty) {
+        if (args.empty) {
+          const changesetDir = path.join(process.cwd(), '.changeset');
+
+          if (!existsSync(changesetDir)) {
+            mkdirSync(changesetDir);
+          }
+
+          const changesetID = humanId({
+            separator: '-',
+            capitalize: false,
+          });
+
+          const changesetFileName = `${changesetID}.md`;
+          const changesetFilePath = path.join(changesetDir, changesetFileName);
+          const markdownContent = '---\n---\n\n';
+          writeFileSync(changesetFilePath, markdownContent, {
+            encoding: 'utf-8',
+          });
+
+          console.log(
+            pc.green('Empty Changeset added! - you can now commit it\n')
+          );
+          console.log(
+            pc.green(
+              'If you want to modify or expand on the changeset summary, you can find it here'
+            )
+          );
+          console.log(pc.cyan('info'), pc.blue(changesetFilePath));
+          return;
+        }
+
+        const packages = await findPackages(config);
+
+        if (packages.size === 0) {
+          console.log('No packages found.');
+          return;
+        }
+
+        const selectedPackages = await getSelectedPackages(packages);
+        if (selectedPackages.length === 0) {
+          console.log('No packages selected.');
+          return;
+        }
+
+        const sortedTypeKeys = Object.keys(config.lazyChangesets.types).sort((a, b) => {
+            return config.lazyChangesets.types[a].sort - config.lazyChangesets.types[b].sort;
+        });
+
+        const msgType = await select({
+          message: 'Select changelog type',
+          options: sortedTypeKeys.map(key => {
+            const type = config.lazyChangesets.types[key];
+            return {
+              value: key,
+              label: `${type.emoji} ${key}`,
+              hint: type.displayName,
+            };
+          }),
+        });
+
+        if (isCancel(msgType)) {
+          cancel('Operation cancelled.');
+          process.exit(0);
+        }
+
+        const changesetType = config.lazyChangesets.types[msgType];
+        let isBreakingChange = false;
+
+        if (changesetType.promptBreakingChange) {
+          const tempIsBreakingChange = await confirm({
+            message: 'Is this a breaking change?',
+            initialValue: false,
+          });
+
+          if (isCancel(tempIsBreakingChange)) {
+            cancel('Operation cancelled.');
+            process.exit(0);
+          }
+
+          isBreakingChange = tempIsBreakingChange;
+        }
+
+        const msg = await text({
+          message: 'Enter a message for the changeset',
+          placeholder: 'e.g Added x feature',
+          validate(value) {
+            if (value.length === 0) return 'Message cannot be empty.';
+          },
+        });
+
+        if (isCancel(msg)) {
+          cancel('Operation cancelled.');
+          process.exit(0);
+        }
+
         const changesetDir = path.join(process.cwd(), '.changeset');
 
+        // create the changeset directory if it doesn't exist
         if (!existsSync(changesetDir)) {
           mkdirSync(changesetDir);
         }
@@ -125,139 +210,29 @@ async function main() {
 
         const changesetFileName = `${changesetID}.md`;
         const changesetFilePath = path.join(changesetDir, changesetFileName);
-        const markdownContent = '---\n---\n\n';
-        writeFileSync(changesetFilePath, markdownContent, {
+        let changesetContent = '---\n';
+        selectedPackages.forEach((pkg) => {
+          changesetContent += `"${pkg}": ${msgType.toString()}${
+            isBreakingChange ? '!' : ''
+          }\n`;
+        });
+
+        changesetContent += '---\n\n';
+        changesetContent += `${msg.toString()}\n`;
+
+        // write the changelog to the changeset file
+        writeFileSync(changesetFilePath, changesetContent, {
           encoding: 'utf-8',
         });
+      },
+    });
 
-        console.log(
-          pc.green('Empty Changeset added! - you can now commit it\n')
-        );
-        console.log(
-          pc.green(
-            'If you want to modify or expand on the changeset summary, you can find it here'
-          )
-        );
-        console.log(pc.cyan('info'), pc.blue(changesetFilePath));
-        return;
-      }
-
-      const packages = await findPackages(config);
-
-      if (packages.size === 0) {
-        console.log('No packages found.');
-        return;
-      }
-
-      const selectedPackages = await getSelectedPackages(packages);
-      if (selectedPackages.length === 0) {
-        console.log('No packages selected.');
-        return;
-      }
-
-      const msgType = await select({
-        message: 'Select message type',
-        options: [
-          { value: 'chore', label: 'Chore 🏠' },
-          { value: 'fix', label: 'Fix 🛠️' },
-          { value: 'feat', label: 'Feature 🚀' },
-          { value: 'docs', label: 'Documentation 📚' },
-          { value: 'style', label: 'Styles 🎨' },
-          { value: 'refactor', label: 'Refactor ♻️' },
-          { value: 'test', label: 'Tests ✅' },
-          { value: 'perf', label: 'Performance ⚡️' },
-          { value: 'build', label: 'Build 📦' },
-          { value: 'ci', label: 'CI 🤖' },
-          { value: 'revert', label: 'Revert ⏪' },
-        ],
-      });
-
-      if (isCancel(msgType)) {
-        cancel('Operation cancelled.');
-        process.exit(0);
-      }
-
-      let isBreakingChange = false;
-
-      if (
-        msgType === 'feat' ||
-        msgType === 'fix' ||
-        msgType === 'refactor' ||
-        msgType === 'perf' ||
-        msgType === 'build' ||
-        msgType === 'revert'
-      ) {
-        const tempIsBreakingChange = await confirm({
-          message: 'Is this a breaking change?',
-          initialValue: false,
-        });
-
-        if (isCancel(tempIsBreakingChange)) {
-          cancel('Operation cancelled.');
-          process.exit(0);
-        }
-
-        isBreakingChange = tempIsBreakingChange;
-      }
-
-      const msg = await text({
-        message: 'Enter a message for the changeset',
-        placeholder: 'e.g Added x feature',
-        validate(value) {
-          if (value.length === 0) return 'Message cannot be empty.';
-        },
-      });
-
-      if (isCancel(msg)) {
-        cancel('Operation cancelled.');
-        process.exit(0);
-      }
-
-      const changesetDir = path.join(process.cwd(), '.changeset');
-
-      // create the changeset directory if it doesn't exist
-      if (!existsSync(changesetDir)) {
-        mkdirSync(changesetDir);
-      }
-
-      const changesetID = humanId({
-        separator: '-',
-        capitalize: false,
-      });
-
-      const changesetFileName = `${changesetID}.md`;
-      const changesetFilePath = path.join(changesetDir, changesetFileName);
-      let changesetContent = '---\n';
-      selectedPackages.forEach((pkg) => {
-        changesetContent += `"${pkg}": ${msgType.toString()}${
-          isBreakingChange ? '!' : ''
-        }\n`;
-      });
-
-      changesetContent += '---\n\n';
-      changesetContent += `${msg.toString()}\n`;
-
-      // write the changelog to the changeset file
-      writeFileSync(changesetFilePath, changesetContent, {
-        encoding: 'utf-8',
-      });
-    },
-  });
-
-  runMain(main);
-}
-
-function readConfigFile(): ChangesetConfig {
-  let config: ChangesetConfig = {...DEFAULT_CONFIG };
-
-  const configFilePath = path.join(process.cwd(), '.changeset', 'config.json');
-  if (existsSync(configFilePath)) {
-    const configFile = readFileSync(configFilePath, 'utf-8');
-    config = JSON.parse(configFile);
+    runMain(main);
+  } catch (error) {
+    console.error('An error occurred:', error);
+    process.exit(1);
   }
-
-  return config;
-}
+})();
 
 async function init() {
   console.log('Initializing changesets...');
@@ -270,6 +245,13 @@ async function init() {
   // create config file
   const configFilePath = path.join(changesetDir, 'config.json');
   if (!existsSync(configFilePath)) {
+    const DEFAULT_CONFIG: Omit<ChangesetConfig, 'lazyChangesets'> = {
+      access: 'restricted',
+      baseBranch: 'main',
+      updateInternalDependencies: 'patch',
+      ignore: [],
+    };
+
     writeFileSync(configFilePath, JSON.stringify(DEFAULT_CONFIG, null, 2));
     console.log('Created config.json file');
   }
@@ -291,8 +273,3 @@ function getReadmeContent() {
   - TODO
   `;
 }
-
-main().catch((err) => {
-  console.error('An error occurred:', err);
-  process.exit(1);
-});
