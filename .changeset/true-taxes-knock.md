@@ -2,7 +2,7 @@
 "@cadamsdev/lazy-changesets": feat
 ---
 
-Add support for customizing changeset types.
+Added support for customizing changeset types.
 
 Here's an example.
 
